@@ -1,0 +1,28 @@
+##config.yaml
+
+data_path : 'Data\Donnes\New_Data\20250624\Haut glucose (16.7mM)_1min.h5'
+channel: 53
+sampling_rate: 10000
+init_data: 50000
+
+# preprocessing
+highpass: 10
+notch: 50
+threshold_sigma: 4.5 # "threshold_sigma": 5.0,  # umbral para detección 5 o 4.5 ?
+threshold_uv: 20  # µV para separar positivo/negativo
+#refractory_ms: 10
+
+
+
+# waveform
+window_pre_ms: 1
+window_post_ms: 3
+
+# model
+n_sources: 2
+t_R: 10 # tiempo refractario ?? es lo mismo que refractory_ms, pero este man uasaba diferentes
+n_s: 16
+
+# output
+save_figures: true
+output_dir: "experiments/test_run"

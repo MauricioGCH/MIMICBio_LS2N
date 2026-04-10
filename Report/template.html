@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Experiment Report</title>
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<style>
+body { font-family: Arial; margin: 30px; background-color: #f5f5f5; }
+h1 { text-align: center; }
+.tabs { margin-bottom: 20px; }
+.tab-button { padding: 10px 20px; border: none; background: #ddd; cursor: pointer; }
+.tab-button.active { background: #4285f4; color: white; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+.box { background: white; padding: 15px; margin-top: 20px; border-radius: 10px; }
+</style>
+</head>
+<body>
+<h1>Experiment Report</h1>
+
+<div class="tabs">
+    <button class="tab-button active" onclick="openTab('offline_tab')">Offline</button>
+    <button class="tab-button" onclick="openTab('online_tab')">Online</button>
+    <button class="tab-button" onclick="openTab('signal_tab')">Residual</button>
+    <button class="tab-button" onclick="openTab('spectral_tab')">Spectral</button>
+    <button class="tab-button" onclick="openTab('weibull_tab')">Weibull</button>
+    <button class="tab-button" onclick="openTab('metrics_tab')">Metrics</button>
+</div>
+
+
+<div id="offline_tab" class="tab-content active">
+    {{offline_block}}
+</div>
+<div id="online_tab" class="tab-content">
+    {{online_block}}
+</div>
+<div id="signal_tab" class="tab-content">
+    {{signal_block}}
+</div>
+<div id="spectral_tab" class="tab-content">
+    {{spectral_block}}
+</div>
+<div id="weibull_tab" class="tab-content">
+    {{weibull_block}}
+</div>
+<div id="metrics_tab" class="tab-content">
+    {{metrics_block}}
+</div>
+
+<script>
+function openTab(tabName) {
+    var tabs = document.getElementsByClassName("tab-content");
+    var buttons = document.getElementsByClassName("tab-button");
+    for (var i = 0; i < tabs.length; i++) {
+        tabs[i].classList.remove("active");
+        buttons[i].classList.remove("active");
+    }
+    document.getElementById(tabName).classList.add("active");
+    event.target.classList.add("active");
+}
+</script>
+
+
+</body>
+</html>
