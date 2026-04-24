@@ -1,28 +1,54 @@
-##config.yaml
+# ==================================================
+# BASE CONFIGURATION
+# ==================================================
 
-data_path : 'Data\Donnes\New_Data\20250624\Haut glucose (16.7mM)_1min.h5'
-channel: 53
-sampling_rate: 10000
-init_data: 50000
+data_path: 'Data/Donnes/New_Data/20250624/Haut glucose (16.7mM)_1min.h5'
+Sintetic: True           # Use synthetic data or real data
+channel: [53]            # Channel to process
+sampling_rate: 10000     # Sampling rate (Hz)
 
-# preprocessing
-highpass: 10
-notch: 50
-threshold_sigma: 4.5 # "threshold_sigma": 5.0,  # umbral para detección 5 o 4.5 ?
-threshold_uv: 20  # µV para separar positivo/negativo
-#refractory_ms: 10
+# ==================================================
+# GRID SEARCH PARAMETERS (accept lists)
+# ==================================================
 
+# OFFLINE
+sampling_rate_DS: 10000                     # Downsampling target (Hz)
+init_data: [600000, 1200000]                # Samples for offline initialization
+n_s: [64, 16]                               # Beam width (number of sequences)
+weibull_init_method: ["Moments", "GridSearch"]  # "LBFGS", "Moments", "GridSearch"
 
+# ONLINE
+theta_update: "Fast"                        # "Fast" or "Regular"
+Gradient_Q: "Fast"                          # "Fast" or "Regular"
+H_update: ["Kalman", "LMS"]                 # "Kalman" or "LMS"
 
-# waveform
-window_pre_ms: 1
-window_post_ms: 3
+# ==================================================
+# FIXED PARAMETERS (single values)
+# ==================================================
 
-# model
-n_sources: 2
-t_R: 10 # tiempo refractario ?? es lo mismo que refractory_ms, pero este man uasaba diferentes
-n_s: 16
+online_s: 30                                # Seconds for online evaluation
 
-# output
-save_figures: true
-output_dir: "experiments/test_run"
+# Manual Weibull initialization (if weibull_init_method = "Manual")
+t0: [2700, 12000]                           # Initial t₀ in samples
+beta: [3, 2]                                # Initial β
+
+# Signal preprocessing
+highpass: 10                                # High-pass filter cutoff (Hz)
+notch: 50                                   # Notch filter frequency (Hz)
+
+# Spike detection
+threshold_sigma: 5                          # Threshold = sigma × this value
+threshold_uv: 20                            # Amplitude threshold (µV)
+spike_min_d_ms: 15                          # Minimum distance between peaks (ms)
+
+# MUAP extraction
+window_pre_ms: 1                            # Samples before spike peak
+window_post_ms: 3                           # Samples after spike peak
+
+n_sources: 2                                # Number of sources (alpha + beta)
+t_R: [1500, 5500]                           # Refractory period (samples per source)
+lms_step_size: 0.01                         # Learning rate for LMS
+
+# Output
+save_figures: true                          # Save individual figures
+output_dir: "experiments/test_run"          # Experiment output directory

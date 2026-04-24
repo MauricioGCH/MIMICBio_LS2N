@@ -48,6 +48,9 @@ def build_report(figures, metrics, config, exp_path):
     <div class="box">
         {fig_to_html(figures["spectral"])}
     </div>
+    <div class="box">
+        {fig_to_html(figures["acf"])}
+    </div>
     """
 
     weibull_block = f"""

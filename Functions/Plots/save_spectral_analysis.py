@@ -2,61 +2,10 @@
 
 import os
 import numpy as np
-import os
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from scipy import signal
 
-def save_spectral_analysis1(Y, Y_pred, config, exp_path):
-    """
-    Análisis espectral:
-    - señal original
-    - reconstrucción
-    - residual
-    """
-
-    fs = config["sampling_rate"]
-
-    # 🔹 residual
-    residual = Y - Y_pred
-
-    # 🔹 FFT
-    def compute_fft(signal):
-        N = len(signal)
-        fft_vals = np.fft.rfft(signal)
-        freqs = np.fft.rfftfreq(N, d=1/fs)
-        power = np.abs(fft_vals)**2
-        return freqs, power
-
-    f_Y, P_Y = compute_fft(Y)
-    f_Yp, P_Yp = compute_fft(Y_pred)
-    f_r, P_r = compute_fft(residual)
-
-    # 🔹 FIGURA
-    fig = go.Figure()
-
-    fig.add_trace(go.Scatter(
-        x=f_r, y=P_r,
-        mode='lines',
-        name='Residual'
-    ))
-
-    fig.update_layout(
-        title="Spectral Analysis (FFT)",
-        xaxis_title="Frequency (Hz)",
-        yaxis_title="Power",
-        template="simple_white",
-        yaxis_type="log"  # 🔥 clave para ver picos
-    )
-
-    # 🔹 guardar
-    save_path = os.path.join(exp_path, "spectral_analysis.html")
-    
-    #fig.write_html(save_path, include_plotlyjs=True, full_html=True, div_id="fig_spectral")
-
-    #print(f"✔️ Spectral analysis saved: {save_path}")
-
-    return fig
 
 
 def save_spectral_analysis(Y, Y_pred, config, exp_path, save = False):
@@ -264,11 +213,142 @@ def save_spectral_analysis(Y, Y_pred, config, exp_path, save = False):
         )
     if save:
         print(f"✔️ Análisis tiempo-frecuencia guardado: {save_path}")
-    print(f"📊 Parámetros STFT: ventana={window_duration}s, overlap={overlap_percentage*100}%")
-    print(f"📈 Resolución temporal: {t_orig[1]-t_orig[0]:.3f}s")
-    print(f"📉 Resolución frecuencial: {f_orig[1]-f_orig[0]:.1f}Hz")
+    #print(f"📊 Parámetros STFT: ventana={window_duration}s, overlap={overlap_percentage*100}%")
+    #print(f"📈 Resolución temporal: {t_orig[1]-t_orig[0]:.3f}s")
+    #print(f"📉 Resolución frecuencial: {f_orig[1]-f_orig[0]:.1f}Hz")
     
-    return fig
+    # ==================================================
+    # 🔹 FIGURA ACF DEL RESIDUAL - VERSIÓN MEJORADA
+    # ==================================================
+    max_lags = min(500, len(residual) // 2)
+
+    # Calcular ACF normalizada
+    acf_full = np.correlate(residual - np.mean(residual), 
+                            residual - np.mean(residual), mode='full')
+    acf_full = acf_full / acf_full[len(acf_full) // 2]
+    acf = acf_full[len(acf_full) // 2 : len(acf_full) // 2 + max_lags + 1]
+
+    lags = np.arange(0, max_lags + 1) / fs
+
+    # Bandas de confianza 95%
+    confidence = 1.96 / np.sqrt(len(residual))
+
+    fig_acf = go.Figure()
+
+    # 🔥 OPCIÓN 1: Usar líneas en lugar de barras (menos "zoom out")
+    fig_acf.add_trace(go.Scatter(
+        x=lags,
+        y=acf,
+        mode='lines+markers',
+        name='ACF',
+        line=dict(color='#1f77b4', width=1.5),
+        marker=dict(size=3, color='#1f77b4'),
+        hovertemplate='Lag: %{x:.4f}s<br>ACF: %{y:.4f}<extra></extra>'
+    ))
+
+    # 🔥 OPCIÓN 2: Barras más delgadas y con límite Y ajustado
+    # fig_acf.add_trace(go.Bar(
+    #     x=lags,
+    #     y=acf,
+    #     name='ACF',
+    #     marker=dict(color='#1f77b4', opacity=0.7),
+    #     width=0.01,  # Barras muy delgadas
+    # ))
+
+    # Banda de confianza
+    fig_acf.add_trace(go.Scatter(
+        x=lags, y=np.full_like(lags, confidence),
+        mode='lines',
+        name='95% Confidence (+)',
+        line=dict(color='red', dash='dash', width=1.5)
+    ))
+
+    fig_acf.add_trace(go.Scatter(
+        x=lags, y=np.full_like(lags, -confidence),
+        mode='lines',
+        name='95% Confidence (-)',
+        line=dict(color='red', dash='dash', width=1.5),
+        fill='tonexty',
+        fillcolor='rgba(255, 0, 0, 0.05)'
+    ))
+
+    fig_acf.add_hline(y=0, line_color='black', line_width=0.5)
+
+    # 🔥 MEJORA: Zoom en los lags pequeños (más relevantes)
+    # En lugar de mostrar todos los 500 lags, mostrar primeros 100-200
+    max_lags_display = min(200, max_lags)
+    fig_acf.update_xaxes(range=[0, max_lags_display / fs])
+
+    fig_acf.update_layout(
+        autosize=True,
+        height=450,
+        margin=dict(l=80, r=60, t=100, b=80),
+        template='plotly_white',
+        title=dict(
+            text='Residual Autocorrelation Function (ACF)',
+            x=0.5,
+            font=dict(size=16, family='Arial', weight='bold')
+        ),
+        xaxis=dict(
+            title='Lag (seconds)',
+            showgrid=True,
+            gridcolor='#e5e5e5',
+            showline=True,
+            linecolor='black'
+        ),
+        yaxis=dict(
+            title='Autocorrelation',
+            showgrid=True,
+            gridcolor='#e5e5e5',
+            showline=True,
+            linecolor='black',
+            range=[-0.2, 1.05]  # 🔥 Ajustado para ver mejor los detalles
+        ),
+        legend=dict(
+            orientation='h',
+            yanchor='bottom',
+            y=1.02,
+            xanchor='center',
+            x=0.5
+        )
+    )
+
+    # Estadísticas
+    lags_outside = np.sum(np.abs(acf[1:]) > confidence)
+    pct_outside = 100 * lags_outside / max_lags
+
+    acf_annotation = (
+        f"<b>ACF Diagnostics:</b><br>"
+        f"Max lags: {max_lags} ({max_lags/fs:.2f}s)<br>"
+        f"Confidence band: ±{confidence:.4f}<br>"
+        f"Lags outside band: {lags_outside} ({pct_outside:.1f}%)<br>"
+        f"{'✅ White noise' if pct_outside < 5 else '⚠️ Some structure remains'}"
+    )
+
+    fig_acf.add_annotation(
+        text=acf_annotation,
+        xref='paper', yref='paper',
+        x=0.98, y=0.98,
+        showarrow=False,
+        font=dict(size=11, family='monospace'),
+        bgcolor='rgba(255,255,255,0.9)',
+        bordercolor='gray',
+        borderwidth=1,
+        borderpad=8,
+        align='left'
+    )
+    if save:
+        save_path_acf = os.path.join(exp_path, "residual_acf.html")
+        fig_acf.write_html(
+            save_path_acf,
+            include_plotlyjs='cdn',
+            full_html=True,
+            config={'responsive': True, 'displayModeBar': True, 'scrollZoom': True}
+        )
+        print(f"✔️ ACF guardado: {save_path_acf}")
+
+    # Modificar el return existente
+    return fig, fig_acf  # <- antes solo retornaba fig
 
 
     

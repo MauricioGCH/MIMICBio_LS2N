@@ -1,9 +1,8 @@
 import os
 import numpy as np
-import os
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-
+from scipy.stats import shapiro, kstest, norm
 
 
 def save_residual_analysis(Y, Y_pred, config, exp_path, save = False):
@@ -189,6 +188,11 @@ def save_residual_analysis(Y, Y_pred, config, exp_path, save = False):
         zerolinewidth=1
     )
     
+    threshold_noise = 2*residual_std
+    # Estadísticas como anotación
+    outliers = np.sum(np.abs(residual) > threshold_noise)
+    pct_outliers = 100 * outliers / len(residual)
+
     # ==================================================
     # 🔹 AÑADIR CAJA DE ESTADÍSTICAS (annotation)
     # ==================================================
@@ -198,6 +202,7 @@ def save_residual_analysis(Y, Y_pred, config, exp_path, save = False):
         f"Std: {residual_std:.4e}<br>"
         f"RMS: {residual_rms:.4e}<br>"
         f"Max |error|: {residual_max:.4e}"
+        f"Outliers > ±{threshold_noise:.0f}µV: {outliers} ({pct_outliers:.3f}%)"
     )
     
     fig.add_annotation(
@@ -221,7 +226,7 @@ def save_residual_analysis(Y, Y_pred, config, exp_path, save = False):
     # Histograma principal
     fig_hist.add_trace(go.Histogram(
         x=residual,
-        nbinsx=50,
+        nbinsx=150,
         histnorm='probability density',
         name='Residual Distribution',
         opacity=0.7,
@@ -300,13 +305,37 @@ def save_residual_analysis(Y, Y_pred, config, exp_path, save = False):
         hovermode='closest'
     )
     
+    # Configurar escala log en Y
+    #fig_hist.update_yaxes(type="log")
+
+    threshold_noise = 2*residual_std
+    # Estadísticas como anotación
+    outliers = np.sum(np.abs(residual) > threshold_noise)
+    pct_outliers = 100 * outliers / len(residual)
+
+    # 🔹 Tests de normalidad
+    sample = residual if len(residual) <= 3000 else np.random.choice(residual, 3000, replace=False)
+    stat_shapiro, p_shapiro = shapiro(sample)
+    # KS test contra distribución normal con media y std del residual
+    #stat_ks, p_ks = kstest(residual, 'norm', args=(residual_mean, residual_std))
+
+    # Interpretación
+    shapiro_result = "✅ Normal" if p_shapiro > 0.05 else "❌ Not Normal"
+    #ks_result = "✅ Normal" if p_ks > 0.05 else "❌ Not Normal"
+    
     # Añadir estadísticas en el histograma
+
     shapiro_text = (
-        f"<b>Quality Metrics:</b><br>"
-        f"RMSE: {residual_rms:.4f}<br>"
-        f"SNR: {20*np.log10(np.std(Y)/residual_std):.2f} dB<br>"
-        f"Mean/Std ratio: {abs(residual_mean/residual_std):.3f}"
-    )
+    f"<b>Quality Metrics:</b><br>"
+    f"RMSE: {residual_rms:.4f}<br>"
+    f"SNR: {20*np.log10(np.std(Y)/residual_std):.2f} dB<br>"
+    f"Mean/Std ratio: {abs(residual_mean/residual_std):.3f}<br>"
+    f"Outliers > ±2σ: {outliers} ({pct_outliers:.3f}%)<br>"
+    f"<br>"
+    f"<b>Normality Tests:</b><br>"
+    f"Shapiro-Wilk: p={p_shapiro:.4f} {shapiro_result}<br>"
+    #f"KS Test:      p={p_ks:.4f} {ks_result}"
+)
     
     fig_hist.add_annotation(
         text=shapiro_text,

@@ -1,16 +1,8 @@
 ##Metrics
-import os
+
 import numpy as np
-from matplotlib import pyplot as plt
-import h5py
-
-import yaml
-import os
-from datetime import datetime
-import json
-
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+from scipy.spatial import cKDTree
+from statistics import multimode
 
 def weibull_discrete_pmf(t, t0, beta, t_R):
     return np.where(
@@ -59,72 +51,87 @@ def compute_cpa_score(Y, U_est, H_est):
 
     return corr, rmse, Y_pred
 
-
-@staticmethod
-def log_likelihood_weibull_refractory(isi_per_mu, theta_per_mu, t_R):
+def evaluate_spike_detection(spikes_abs, gt_peaks, tolerance=3, verbose=True):
     """
-    Calcula el log-likelihood TOTAL para múltiples unidades motoras.
+    Evalúa la detección de spikes.
     
     Parámetros:
-    - isi_per_mu: lista de arrays, cada array contiene los ISI de una MU
-    - theta_per_mu: lista de tuplas [(t0, beta), ...] para cada MU
-    - t_R: período refractario en muestras (escalar, igual para todas las MUs)
+    -----------
+    spikes_abs : list or array
+        Spikes detectados (coordenadas absolutas)
+    gt_peaks : list or array
+        Ground truth (coordenadas absolutas, ya con offset aplicado)
+    tolerance : int
+        Tolerancia en muestras para considerar un acierto
+    verbose : bool
+        Si imprimir resultados
     
     Retorna:
-    - log_likelihood_total: float (suma de log-likelihoods de todas las MUs)
-    - log_likelihood_promedio: float (promedio por muestra total)
-    - log_likelihood_por_mu: lista de floats (individual por MU)
+    --------
+    dict con métricas
     """
     
-    log_likelihood_por_mu = []
-    n_total_muestras = 0
+    #Convertir a numpy arrays si es necesario
+    spikes_abs = np.asarray(spikes_abs)
+    gt_peaks = np.asarray(gt_peaks)
     
-    for i, (isi, theta) in enumerate(zip(isi_per_mu, theta_per_mu)):
+    if len(gt_peaks) == 0:
+        tp, fp, fn = 0, len(spikes_abs), 0
+        errors = []
+    elif len(spikes_abs) == 0:
+        tp, fp, fn = 0, 0, len(gt_peaks)
+        errors = []
+    else:
+        #reshape apra el cKDTree
+        tree = cKDTree(gt_peaks.reshape(-1, 1))
+        distances, indices = tree.query(spikes_abs.reshape(-1, 1), k=1)
         
-        # Si no hay ISIs para esta MU, saltar
-        if len(isi) == 0:
-            print(f"⚠️ MU {i+1}: No hay ISIs, LogL = -inf")
-            log_likelihood_por_mu.append(-np.inf)
-            continue
+        used_gt = set()
+        tp = 0
+        errors = []
         
-        t0, beta = theta
+        for i_spike, (dist, idx_gt) in enumerate(zip(distances, indices)):
+            if dist <= tolerance and idx_gt not in used_gt:
+                tp += 1
+                used_gt.add(idx_gt)
+                errors.append(spikes_abs[i_spike] - gt_peaks[idx_gt])
         
-        # Verificar violaciones del período refractario
-        if np.any(isi <= t_R):
-            print(f"❌ MU {i+1}: {np.sum(isi <= t_R)} ISIs violan t_R={t_R}")
-            log_likelihood_por_mu.append(-np.inf)
-            continue
-        
-        # Calcular PMF para cada ISI de esta MU
-        isi_f = isi.astype(float)
-        denom = t0 - t_R
-        
-        # Prevenir división por cero
-        if denom <= 0:
-            print(f"❌ MU {i+1}: t0 ({t0}) <= t_R ({t_R})")
-            log_likelihood_por_mu.append(-np.inf)
-            continue
-        
-        arg = (isi_f - t_R) / denom
-        arg_prev = (isi_f - 1 - t_R) / denom
-        
-        arg = np.maximum(arg, 0)
-        arg_prev = np.maximum(arg_prev, 0)
-        
-        pmf = np.exp(-(arg_prev)**beta) - np.exp(-(arg)**beta)
-        pmf = np.maximum(pmf, 1e-12)
-        
-        # Log-likelihood TOTAL de esta MU (suma, no promedio)
-        logL_mu = np.sum(np.log(pmf))
-        log_likelihood_por_mu.append(logL_mu)
-        n_total_muestras += len(isi)
-        
-        print(f"MU {i+1}: n={len(isi)}, LogL={logL_mu:.4f}")
+        fp = len(spikes_abs) - tp
+        fn = len(gt_peaks) - tp
     
-    # Log-likelihood TOTAL (suma de todas las MUs)
-    log_likelihood_total = np.sum(log_likelihood_por_mu)
+    # Métricas
+    precision = tp / (tp + fp) if (tp + fp) > 0 else 0
+    recall = tp / (tp + fn) if (tp + fn) > 0 else 0
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
     
-    # Log-likelihood PROMEDIO por muestra (para comparar con diferentes n)
-    log_likelihood_promedio = log_likelihood_total / n_total_muestras if n_total_muestras > 0 else -np.inf
+    results = {
+        'TP': tp,
+        'FP': fp,
+        'FN': fn,
+        'precision': precision,
+        'recall': recall,
+        'f1': f1,
+        'errors': np.array(errors),
+        'mean_error': np.mean(errors) if errors else 0,
+        'std_error': np.std(errors) if errors else 0,
+    }
     
-    return log_likelihood_total, log_likelihood_promedio, log_likelihood_por_mu
+    # Calcular moda (requiere lista de enteros)
+    if errors:
+        errors_int = [int(round(e)) for e in errors]
+        results['mode_error'] = multimode(errors_int) if errors_int else []
+    else:
+        results['mode_error'] = []
+    
+    if verbose:
+        print(f"\n  📊 Spike Detection Metrics:")
+        print(f"     TP: {tp} | FP: {fp} | FN: {fn}")
+        print(f"     Precision: {precision:.3f}")
+        print(f"     Recall: {recall:.3f}")
+        print(f"     F1-score: {f1:.3f}")
+        if errors:
+            print(f"     Mean error: {results['mean_error']:.2f} samples")
+            print(f"     Std error: {results['std_error']:.2f}")
+            print(f"     Mode error: {results['mode_error']}")
+    
+    return results
