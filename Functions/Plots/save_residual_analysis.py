@@ -405,4 +405,52 @@ def save_residual_analysis(Y, Y_pred, config, exp_path, save = False):
     print(f"   • SNR:      {20*np.log10(np.std(Y)/residual_std):.2f} dB")
     print(f"{'='*60}\n")
     
-    return fig, fig_hist
+    return fig, fig_hist, residual
+
+
+import matplotlib.pyplot as plt
+import scipy.stats as stats
+
+
+def save_qq_plot(residuals, fs, exp_path, save=True):
+    """
+    Genera y guarda un QQ plot de los residuos.
+    """
+    
+    # Estandarizar residuos
+    residuals_std = (residuals - np.mean(residuals)) / np.std(residuals)
+    
+    # Ordenar residuos
+    sorted_residuals = np.sort(residuals_std)
+    n = len(sorted_residuals)
+    
+    # Cuantiles teóricos
+    positions = (np.arange(1, n + 1) - 0.5) / n
+    theoretical_quantiles = stats.norm.ppf(positions)
+    
+    # Línea diagonal
+    min_val = min(theoretical_quantiles.min(), sorted_residuals.min())
+    max_val = max(theoretical_quantiles.max(), sorted_residuals.max())
+    
+    # Crear figura
+    fig, ax = plt.subplots(figsize=(6, 6))
+    
+    ax.scatter(theoretical_quantiles, sorted_residuals, s=10, alpha=0.5, color='steelblue')
+    ax.plot([min_val, max_val], [min_val, max_val], 'r--', lw=2)
+    
+    ax.set_xlabel('Cuantiles teóricos (Normal)')
+    ax.set_ylabel('Cuantiles observados (Residuos)')
+    ax.set_title(f'QQ Plot - Residuos (fs={fs} Hz)')
+    ax.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    
+    if save:
+        save_path = os.path.join(exp_path, "residual_qq_plot.png")
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        plt.close()
+        print(f"📁 QQ plot guardado en: {save_path}")
+    else:
+        plt.show()
+    
+    return fig

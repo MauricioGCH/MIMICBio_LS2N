@@ -149,7 +149,7 @@ def generate_synthetic_signal(config, duration_sec=150,
                               amp1=40, amp2=30, 
                               h1_s1_std_div=12, h1_s2_std_div=8,
                               h2_s1_std_div=10, h2_s2_std_div=6,
-                              noise_std=4, theta_list=None, t_R_list=None, 
+                              noise_std=4, theta_list=None, 
                               biphasic=True):
     """
     Genera señal sintética.
@@ -168,6 +168,8 @@ def generate_synthetic_signal(config, duration_sec=150,
     # --------------------------------------------------
     fs_original = config.get('sampling_rate', 10000)
     fs_target = config.get('sampling_rate_DS', fs_original)
+    theta_list = [[config["t0"][0], config["beta"][0]],[config["t0"][1], config["beta"][1]]]
+    t_R_list = config["t_R"]
     
     # Determinar si hay downsampling
     do_downsample = fs_target < fs_original

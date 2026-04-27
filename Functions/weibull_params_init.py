@@ -250,16 +250,36 @@ def estimate_weibull_moments(isi_per_mu, fs, config):
         # CV = 1.0 → β = 1.0 (exponentielle)
         # CV = 0.5 → β = 2.0 (Rayleigh)
         # CV = 0.3 → β = 3.0
-        if cv < 0.4:
-            beta_est = 3.5
-        elif cv < 0.6:
-            beta_est = 2.5
-        elif cv < 0.8:
-            beta_est = 2.0
-        elif cv < 1.0:
-            beta_est = 1.5
+        """"La relación CV-β para Weibull se puede encontrar en:
+
+        Rinne, H. (2008). The Weibull Distribution: A Handbook. CRC Press.
+        Chapter 2: Properties of the Weibull Distribution
+
+        Wikipedia contributors. (2024). Weibull distribution. In Wikipedia, The Free Encyclopedia.
+        https://en.wikipedia.org/wiki/Weibull_distribution (see "Properties" section)
+
+        """
+        # Déterminer β à partir du coefficient de variation
+        # D'après Rinne (2008), Table 12/3:
+        # CV = 0.325 → β = 3.5
+        # CV = 0.363 → β = 3.0
+        # CV = 0.435 → β = 2.5
+        # CV = 0.523 → β = 2.0
+        # CV = 0.655 → β = 1.5
+        # CV = 1.000 → β = 1.0
+
+        if cv < 0.34:
+            beta_est = 3.5      # CV(3.5)=0.325
+        elif cv < 0.40:
+            beta_est = 3.0      # CV(3.0)=0.363
+        elif cv < 0.48:
+            beta_est = 2.5      # CV(2.5)=0.435
+        elif cv < 0.59:
+            beta_est = 2.0      # CV(2.0)=0.523
+        elif cv < 0.83:
+            beta_est = 1.5      # CV(1.5)=0.655
         else:
-            beta_est = 1.2
+            beta_est = 1.2      # Pour CV très grands (>0.83)
         
         # Estimer t0 à partir de la moyenne: E[t] = t0 × Γ(1 + 1/β)
         t0_est = mean_t / gamma(1 + 1/beta_est)

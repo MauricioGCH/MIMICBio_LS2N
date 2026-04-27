@@ -240,7 +240,9 @@ def main():
                                                                             config, exp_path) ## [config["init_data"]:config["init_data"]+int(config["online_s"]*fs)]
 
 
-            plot_residual, plot_residual_hist = residual_plot.save_residual_analysis(online_results["Y"], Y_pred, config, exp_path)
+            plot_residual, plot_residual_hist, residuals = residual_plot.save_residual_analysis(online_results["Y"], Y_pred, config, exp_path)
+
+            qq_plot = residual_plot.save_qq_plot(residuals, config["sampling_rate"],exp_path)
 
             plot_spectral, plot_acf = save_spectral_analysis.save_spectral_analysis(online_results["Y"], Y_pred, config, exp_path)
 

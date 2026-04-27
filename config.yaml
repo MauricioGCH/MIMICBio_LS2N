@@ -13,24 +13,24 @@ sampling_rate: 10000     # Sampling rate (Hz)
 
 # OFFLINE
 sampling_rate_DS: 10000                     # Downsampling target (Hz)
-init_data: [600000, 1200000]                # Samples for offline initialization
-n_s: [64, 16]                               # Beam width (number of sequences)
+init_data: [600000, 300000]                # Samples for offline initialization
+n_s: 16                               # Beam width (number of sequences)
 weibull_init_method: ["Moments", "GridSearch"]  # "LBFGS", "Moments", "GridSearch"
 
 # ONLINE
 theta_update: "Fast"                        # "Fast" or "Regular"
 Gradient_Q: "Fast"                          # "Fast" or "Regular"
-H_update: ["Kalman", "LMS"]                 # "Kalman" or "LMS"
+H_update: "Kalman"                 # "Kalman" or "LMS"
 
 # ==================================================
 # FIXED PARAMETERS (single values)
 # ==================================================
 
-online_s: 30                                # Seconds for online evaluation
+online_s: 5                                # Seconds for online evaluation
 
 # Manual Weibull initialization (if weibull_init_method = "Manual")
-t0: [2700, 12000]                           # Initial t₀ in samples
-beta: [3, 2]                                # Initial β
+t0: [2700, 12000]                           # Initial t₀ in samples, both for signal generation and model
+beta: [3, 2]                                # Initial β, both for signal generation and model
 
 # Signal preprocessing
 highpass: 10                                # High-pass filter cutoff (Hz)
@@ -46,7 +46,7 @@ window_pre_ms: 1                            # Samples before spike peak
 window_post_ms: 3                           # Samples after spike peak
 
 n_sources: 2                                # Number of sources (alpha + beta)
-t_R: [1500, 5500]                           # Refractory period (samples per source)
+t_R: [1500, 5500]                           # Refractory period (samples per source), both for signal generation and model
 lms_step_size: 0.01                         # Learning rate for LMS
 
 # Output
