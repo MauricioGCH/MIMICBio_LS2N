@@ -3,6 +3,7 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from scipy.stats import shapiro, kstest, norm
+import matplotlib.pyplot as plt
 
 
 def save_residual_analysis(Y, Y_pred, config, exp_path, save = False):
@@ -408,49 +409,123 @@ def save_residual_analysis(Y, Y_pred, config, exp_path, save = False):
     return fig, fig_hist, residual
 
 
-import matplotlib.pyplot as plt
-import scipy.stats as stats
 
+
+""""Cambio      Tu versión          Nueva versión
+
+Posiciones | Hazen aproximado (i-0.5)/n |  Blom (i-0.375)/(n+0.25) — más preciso en extremos
+
+Línea de referencia | Diagonal y=x | Regresión por cuartiles — robusta a outliers
+
+Bandas de confianza | Ausentes |  ±1.96·SE al 95% — permiten juzgar visualmente si las desviaciones son significativas"""
 
 def save_qq_plot(residuals, fs, exp_path, save=True):
     """
-    Genera y guarda un QQ plot de los residuos.
+    Genera y guarda un QQ plot de los residuos con bandas de confianza al 95%.
+    
+    Parámetros:
+    -----------
+    residuals : array
+        Residuos del modelo
+    fs : int
+        Frecuencia de muestreo (para el título)
+    exp_path : str
+        Ruta de guardado
+    save : bool
+        Si True guarda el archivo, si False muestra en pantalla
+    
+    Retorna:
+    --------
+    fig : matplotlib Figure
     """
-    
-    # Estandarizar residuos
+    import scipy.stats as stats
+
+    # ==================================================
+    # 🔹 ESTANDARIZAR RESIDUOS
+    # ==================================================
     residuals_std = (residuals - np.mean(residuals)) / np.std(residuals)
-    
-    # Ordenar residuos
     sorted_residuals = np.sort(residuals_std)
     n = len(sorted_residuals)
-    
-    # Cuantiles teóricos
-    positions = (np.arange(1, n + 1) - 0.5) / n
+
+    # ==================================================
+    # 🔹 CUANTILES TEÓRICOS
+    # ==================================================
+    # Posiciones de Hazen (más precisas que (i-0.5)/n para extremos)
+    positions = (np.arange(1, n + 1) - 0.375) / (n + 0.25)
     theoretical_quantiles = stats.norm.ppf(positions)
-    
-    # Línea diagonal
-    min_val = min(theoretical_quantiles.min(), sorted_residuals.min())
-    max_val = max(theoretical_quantiles.max(), sorted_residuals.max())
-    
-    # Crear figura
-    fig, ax = plt.subplots(figsize=(6, 6))
-    
-    ax.scatter(theoretical_quantiles, sorted_residuals, s=10, alpha=0.5, color='steelblue')
-    ax.plot([min_val, max_val], [min_val, max_val], 'r--', lw=2)
-    
-    ax.set_xlabel('Cuantiles teóricos (Normal)')
-    ax.set_ylabel('Cuantiles observados (Residuos)')
-    ax.set_title(f'QQ Plot - Residuos (fs={fs} Hz)')
+
+    # ==================================================
+    # 🔹 BANDAS DE CONFIANZA AL 95% (método de Kolmogorov-Smirnov)
+    # La banda refleja la incertidumbre esperada si los datos son normales
+    # ==================================================
+    se = (1 / stats.norm.pdf(theoretical_quantiles)) * np.sqrt(
+        positions * (1 - positions) / n
+    )
+    ci_upper = theoretical_quantiles + 1.96 * se
+    ci_lower = theoretical_quantiles - 1.96 * se
+
+    # ==================================================
+    # 🔹 LÍNEA DE REFERENCIA (regresión robusta por cuartiles)
+    # Más robusta que y=x cuando hay outliers
+    # ==================================================
+    q25_t, q75_t = np.percentile(theoretical_quantiles, [25, 75])
+    q25_r, q75_r = np.percentile(sorted_residuals, [25, 75])
+    slope = (q75_r - q25_r) / (q75_t - q25_t)
+    intercept = q25_r - slope * q25_t
+
+    line_x = np.array([theoretical_quantiles.min(), theoretical_quantiles.max()])
+    line_y = slope * line_x + intercept
+
+    # ==================================================
+    # 🔹 FIGURA
+    # ==================================================
+    fig, ax = plt.subplots(figsize=(7, 7))
+
+    # Banda de confianza
+    ax.fill_between(
+        theoretical_quantiles, ci_lower, ci_upper,
+        alpha=0.15, color='royalblue', label='95% Confidence band'
+    )
+
+    # Puntos
+    ax.scatter(
+        theoretical_quantiles, sorted_residuals,
+        s=8, alpha=0.4, color='steelblue', zorder=3
+    )
+
+    # Línea de referencia
+    ax.plot(line_x, line_y, 'r--', lw=2, label='Reference line (IQR fit)')
+
+    # ==================================================
+    # 🔹 DECORACIÓN
+    # ==================================================
+    n_outside = np.sum(
+        (sorted_residuals < ci_lower) | (sorted_residuals > ci_upper)
+    )
+    pct_outside = 100 * n_outside / n
+
+    ax.set_xlabel('Theoretical quantiles (Normal)', fontsize=12)
+    ax.set_ylabel('Observed quantiles (Residuals)', fontsize=12)
+    ax.set_title(
+        f'QQ Plot — Standardized Residuals\n'
+        f'n={n} | {n_outside} points outside band ({pct_outside:.1f}%)',
+        fontsize=13
+    )
+    ax.legend(fontsize=10)
     ax.grid(True, alpha=0.3)
-    
     plt.tight_layout()
-    
+
+    # ==================================================
+    # 🔹 GUARDAR
+    # ==================================================
     if save:
         save_path = os.path.join(exp_path, "residual_qq_plot.png")
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
         plt.close()
-        print(f"📁 QQ plot guardado en: {save_path}")
+        print(f"📁 QQ plot saved: {save_path}")
+        print(f"   • Points outside 95% band: {n_outside} ({pct_outside:.1f}%)")
+        print(f"   • Interpretation: {'✅ Approximately normal' if pct_outside < 10 else '⚠️ Deviations from normality detected'}")
     else:
         plt.show()
-    
+
     return fig

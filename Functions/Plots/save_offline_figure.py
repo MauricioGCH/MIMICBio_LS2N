@@ -3,6 +3,7 @@ import os
 import numpy as np
 import plotly.graph_objects as go
 from Functions.Metrics import weibull_discrete_pmf
+import scipy
 def save_offline_figure(offline_results, signal_filtered, config, exp_path, save = True, spike_idx_true=None,OFFSET_peaks = None):
     """
     Crea y guarda figuras interactivas para resultados OFFLINE:
@@ -28,6 +29,7 @@ def save_offline_figure(offline_results, signal_filtered, config, exp_path, save
     # 🔹 DATOS PREPARACIÓN
     # ==================================================
     signal_window = signal_filtered[:init_data]
+    #SNR = 20*np.log10(np.std(Y)/residual_std)
     L = len(signal_window)
     time = np.linspace(0, L / fs, L, endpoint=False)
     

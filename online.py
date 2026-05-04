@@ -57,7 +57,7 @@ def run_online(signal, offline_results, config):
         # Modelo con un solo MUAP (array simple)
         ell_RI = len(model["H"])  
     # Ahora (lista/array)
-    ell_infinity = [1000 * i for i in t_R]
+    ell_infinity = [100 * i for i in t_R]
     n_s = config["n_s"]  # puedes moverlo a config luego
     # plt.plot(model["H"][0])
     # plt.show()

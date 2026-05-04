@@ -18,10 +18,12 @@ import Functions.Plots.save_spike_online_figure as online_plot
 import Functions.Plots.save_residual_analysis as residual_plot
 import Functions.Plots.save_weibull_fit_figure as weibull_plot
 import Functions.Plots.save_theta_history as save_theta_history
+from Functions.update_experiment_summary import update_experiment_summary
 
 import Signal_simulation as sig_sim
 from Report.builder import build_report
 from Functions.params_grid_search import get_all_configs
+import matplotlib.pyplot as plt
 
 class Logger:
     """Clase para redirigir print a un archivo de log y mantener la salida en consola"""
@@ -51,8 +53,9 @@ def load_data(config, canal):
         )
 
     elif path.endswith(".bin"):
-        data = Utils.read_multichannel_bin_data(path, ch=canal)
+        data = Utils.read_multichannel_bin_data(path, ch=canal, skip_s= config["skip_s"], length_s= config["length_s"])
         signal = data # data[:, config["channel"]]
+        
         fs = config["sampling_rate"]
 
     else:
@@ -94,7 +97,11 @@ def main():
 
             # ---- LOAD ----
             if config["Sintetic"]:
-                Y, _, _, _, _, spike_idx_true, fs_final, _, _, OFFSET_peaks = sig_sim.generate_synthetic_signal(config) #Senal simulada con los parametros groundtruth para validacion
+                Y, _, _, _, _, spike_idx_true, fs_final, _, _, OFFSET_peaks = sig_sim.generate_synthetic_signal(config = config, 
+                                                                                                                amp1 = config["amp1"], amp2 = config["amp2"], 
+                                                                                                                h1_s1_std_div = config["h1_s1_std_div"], h1_s2_std_div = config["h1_s2_std_div"]
+                                                                                                                , h2_s1_std_div = config["h2_s1_std_div"], h2_s2_std_div = config["h2_s2_std_div"]
+                                                                                                                , noise_std = config["noise_std"]) #Senal simulada con los parametros groundtruth para validacion
                 #Y, U_true, H_true, Theta_true, isi_true, spike_idx_true, fs_final, ell_final, offset_info, OFFSET_peaks
                 
                 #el tR y el init data lo cambio dentro de la funcion
@@ -111,7 +118,7 @@ def main():
                 signal_filtered = Utils.preprocess_signal(signal, config) # Filter the whole signal, we should probably do this by chunks having the whole length in memory, not good
             else:
                 signal_filtered = signal # Bc of variable name change
-
+            
             # ---- Down Sampling ---#
             if not config["Sintetic"] and config["sampling_rate_DS"] != config["sampling_rate"]:
                 signal_filtered, fs, t_R, decimation_factor= Utils.preprocess_with_downsampling(signal_filtered, fs, config)
@@ -249,9 +256,9 @@ def main():
             plot_weibull = weibull_plot.save_weibull_fit_figure(online_results, config, exp_path)
 
             ### graficar theta history
-            #theta_history = online_results["theta_history"]
+            theta_history = online_results["theta_history"]
             
-            #save_theta_history.plot_theta_individual_mus(theta_history, exp_path)
+            save_theta_history.plot_theta_individual_mus(theta_history, exp_path)
 
             #plot_spikes, plot_muaps_offline, plot_isi
             figures = {
@@ -288,6 +295,11 @@ def main():
             sys.stdout = logger.terminal
             logger.log_file.close()
             Utils.save_config(config, exp_path)
+            update_experiment_summary(
+            exp_path=exp_path,
+            config=config,
+            base_output_dir=config["output_dir"],
+            excel_name="experiments_summary.xlsx")
 
 
 if __name__ == "__main__":

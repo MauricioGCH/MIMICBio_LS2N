@@ -146,7 +146,7 @@ def get_muap_length(fs, duration_ms=4):
 # Generate signal with 2 sources
 # ==========================================================
 def generate_synthetic_signal(config, duration_sec=150, 
-                              amp1=40, amp2=30, 
+                              amp1=25, amp2=15, 
                               h1_s1_std_div=12, h1_s2_std_div=8,
                               h2_s1_std_div=10, h2_s2_std_div=6,
                               noise_std=4, theta_list=None, 
@@ -204,7 +204,7 @@ def generate_synthetic_signal(config, duration_sec=150,
         ]
     
     if t_R_list is None:
-        t_R_list = [t_R_samples, t_R_samples]
+        t_R_list = [t_R_samples, t_R_samples*3.5]
     
     # --------------------------------------------------
     # Generar MUAPs con la frecuencia FINAL

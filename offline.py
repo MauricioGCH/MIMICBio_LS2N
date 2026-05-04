@@ -5,18 +5,33 @@ import matplotlib.pyplot as plt
 import Functions.weibull_params_init as init_tetha
 
 def detect_spikes(signal, fs, config):
-    sigma = np.std(signal) # cambiar por Median standard deviation ?
-    #breakpoint()
-    #print(f"std: {np.std(signal)}")
-    #print(f"MAD : {np.median(np.abs(signal - np.median(signal)))}")
-    #sigma = np.median(np.abs(signal - np.median(signal)))
-    threshold = config["threshold_sigma"] * sigma
+    
+    
+    if config["threshold_method"]== "std":
+        sigma = np.std(signal) # cambiar por Median standard deviation ?
+        threshold = config["threshold_sigma"] * sigma
+    elif config["threshold_method"] == "percentil":
+        threshold = np.percentile(np.abs(signal), 99.5)
+    elif config["threshold_method"] == "median":
+        med = np.median(signal)
+        
+        sigma = np.median(np.abs(signal - med)) / 0.6745
+
+        #A = np.percentile(np.abs(signal), 99.9)
+
+        #snr = A / sigma
+        #snr_db = 20*np.log10(snr)
+        
+        threshold = config["threshold_sigma"] * sigma
+       
+    print(f"For method {config["threshold_method"]} the threshold is {threshold}")
     
     spike_idx = np.where(np.abs(signal) > threshold)[0]
     
     #  Eliminar spikes cercanos dado el periodo refractario; esto no es biologicamente del todo correcto en realidad.
     min_dist = int(config["spike_min_d_ms"] * fs / 1000) # convertirlo en muestras
     spike_idx = remove_close_spikes(spike_idx, min_dist)
+    print(spike_idx)
     
     return spike_idx, sigma, threshold
 
@@ -41,7 +56,7 @@ def extract_waveforms(signal, spike_idx, fs, config):
     return waveforms, mean_waveform
 
 
-def extract_waveforms_separate_muaps(signal, spike_idx, fs, config):
+def extract_waveforms_separate_muaps(signal, spike_idx, fs, config, threshold):
     """
     Extrae waveforms separando por polaridad (positivas y negativas)
     cuando se asume que hay 2 MUAPs (n_MU = 2).
@@ -71,7 +86,7 @@ def extract_waveforms_separate_muaps(signal, spike_idx, fs, config):
     # Parámetros de ventana
     pre = int(config["window_pre_ms"] * fs / 1000)
     post = int(config["window_post_ms"] * fs / 1000)
-    threshold_uv = config["threshold_uv"]  # umbral en µV
+    threshold_uv = threshold  # umbral en µV
     
     forms_pos = []
     forms_neg = []
@@ -194,7 +209,7 @@ def run_offline(signal_filtered, fs, config):
         
         # Separar por polaridad (positiva/negativa)
         waveforms_per_mu, mean_waveforms_per_mu, mu_assignment = extract_waveforms_separate_muaps(
-            signal_filtered, spike_idx, fs, config
+            signal_filtered, spike_idx, fs, config, threshold
         )
         
         # Calcular ISI por MU
@@ -249,6 +264,11 @@ def run_offline(signal_filtered, fs, config):
     elif config["weibull_init_method"] == "Manual":
         t0_init= config["t0"]
         beta_init =config["beta"]
+    elif config["weibull_init_method"] == "None":
+        t0_init= np.array([np.random.uniform(2000, 5000)],
+                          np.random.uniform(2000, 5000))
+        beta_init = np.array([np.random.uniform(1, 5)],
+                          np.random.uniform(1, 5))
 
     
     ## Estimacion de la varianza del ruido v
